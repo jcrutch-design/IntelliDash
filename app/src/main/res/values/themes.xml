@@ -1,0 +1,4 @@
+<resources>
+
+    <style name="Theme.IntelliDash" parent="Theme.MaterialComponents.Light" />
+</resources>
