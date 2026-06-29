@@ -14,14 +14,15 @@ import java.util.concurrent.TimeUnit
  */
 class MediaIndexerWorker(
     context: Context,
-    workerParams: WorkerParameters
+    workerParams: WorkerParameters,
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
         Log.d("MediaIndexerWorker", "Starting media indexing work")
         val database = MediaDatabase.getDatabase(applicationContext)
         val dao = database.mediaDao()
-        val indexerClient = MultimodalIndexerClient(applicationContext)
+        val collectionDao = database.userCollectionDao()
+        val indexerClient = MultimodalIndexerClient()
 
         try {
             // 1. Scan for new files (Root access)
@@ -33,14 +34,17 @@ class MediaIndexerWorker(
                 }
             }
 
-            // 2. Index items in a loop (Batch size for responsiveness)
+            // Fetch preferred collections
+            val preferredCollections = collectionDao.getCollectionNames()
+            Log.d("MediaIndexerWorker", "Preferred collections: $preferredCollections")
+
+            // 2. Index items in a loop until finished or stopped
             var indexedCount = 0
-            val maxBatchSize = 10
             
-            while (indexedCount < maxBatchSize) {
+            while (!isStopped) {
                 val item = dao.getNextUnindexedItem() ?: break
                 
-                Log.d("MediaIndexerWorker", "Indexing ($indexedCount/$maxBatchSize): ${item.path}")
+                Log.d("MediaIndexerWorker", "Indexing item #$indexedCount: ${item.path}")
 
                 // 3. Perform AI inference
                 val bitmap = RootStorageHelper.readMediaFile(item.path)
@@ -51,7 +55,7 @@ class MediaIndexerWorker(
                     continue
                 }
 
-                val response = indexerClient.indexImage(bitmap)
+                val response = indexerClient.indexImage(bitmap, preferredCollections)
                 bitmap.recycle()
 
                 if (response != null) {
@@ -60,6 +64,7 @@ class MediaIndexerWorker(
                         item.copy(
                             summary = response.summary,
                             category = response.category,
+                            collectionName = response.collectionName,
                             tags = response.tags,
                             indexedAt = System.currentTimeMillis()
                         )
@@ -68,8 +73,15 @@ class MediaIndexerWorker(
                     indexedCount++
                 } else {
                     Log.w("MediaIndexerWorker", "AI inference failed for ${item.path}")
-                    // If one fails, we might want to retry later, but for now let's just move to next or stop batch
-                    break 
+                    // To avoid getting stuck in a loop, mark this item as failed in the DB
+                    dao.update(
+                        item.copy(
+                            summary = "Error: Inference failed",
+                            indexedAt = System.currentTimeMillis()
+                        )
+                    )
+                    indexedCount++
+                    continue
                 }
             }
             
@@ -83,7 +95,7 @@ class MediaIndexerWorker(
             }
         } catch (e: Exception) {
             Log.e("MediaIndexerWorker", "Worker failed", e)
-            return Result.failure()
+            return Result.failure(workDataOf("error" to (e.message ?: "Unknown error")))
         }
     }
 
@@ -96,7 +108,7 @@ class MediaIndexerWorker(
          */
         fun enqueuePeriodicWork(context: Context) {
             val constraints = Constraints.Builder()
-                .setRequiresCharging(true)
+                .setRequiresCharging(requiresCharging = true)
                 .setRequiresDeviceIdle(true)
                 .build()
 

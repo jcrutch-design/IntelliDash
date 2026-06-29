@@ -1,28 +1,23 @@
 # Project Plan
 
-Local-first coding assistant app using on-device Gemini Nano (AICore) and AppFunctions to expose capabilities to the system. Features include Android 16 SDK 36 support, AppFunctions alpha09, and structured JSON output for code audits.
+IntelliDash: Multimodal AI Productivity Hub with Context Auditor and Media Indexer. Currently has a searchable gallery and AI-generated metadata.
 
 ## Project Brief
 
-I have created a project brief for IntelliDash, focusing on a local-first MVP that leverages on-device AI and system-level integrations.
+# IntelliDash: Project Brief
 
-### Features
-1. **On-Device Code Audit Engine**: Uses Gemini Nano (AICore) to analyze code snippets for complexity and vulnerabilities locally, ensuring privacy and speed.
-2. **Dynamic Code Workbench**: A modern interface for inputting code and viewing structured audit results (complexity, vulnerabilities, refactored code) side-by-side.
-3. **System-Aware AppFunctions**: Exposes auditing capabilities to the Android system, enabling voice commands and shortcuts via AppFunctions (alpha09).
-4. **AI Health Dashboard**: A real-time status indicator showing the availability and performance of the on-device AI model.
-5. **Adaptive Multi-Pane Layout**: A responsive UI built with Compose Material Adaptive that optimizes the experience across phones, foldables, and tablets.
+## Features
+- **Multimodal AI Indexer**: Automatically generates metadata and extracts context from images and media using multimodal AI models.
+- **Semantic Search Gallery**: A high-performance searchable interface that allows users to find media using natural language queries based on AI-indexed content.
+- **Smart AI Collections**: Intelligent categorization that automatically groups media into folders (e.g., Receipts, Travel, Work, Food) based on AI-suggested labels, mirroring a "Pixel Screenshots" style experience.
+- **Adaptive Productivity Hub**: A responsive dashboard providing a high-level overview of indexed context and quick access to smart collections, optimized for all form factors.
 
-### High-Level Technical Stack
-*   **Language**: Kotlin
-*   **UI Framework**: Jetpack Compose (Material 3)
-*   **Navigation**: Jetpack Navigation 3 (State-driven)
-*   **Adaptive Strategy**: Compose Material Adaptive Library
-*   **AI Engine**: Google AI Edge SDK (Gemini Nano / AICore)
-*   **System Integration**: Android 16 (SDK 36), AppFunctions (alpha09)
-*   **Concurrency**: Kotlin Coroutines & Flow
-
-*The UI Design Image section was omitted as the generation tool is unavailable.*
+## High-Level Technical Stack
+- **Kotlin**: The core programming language for modern Android development.
+- **Jetpack Compose**: Declarative UI framework for building the app's components.
+- **Jetpack Navigation 3**: State-driven navigation architecture to manage app flows and deep linking.
+- **Compose Material Adaptive**: Core library for implementing adaptive layouts (e.g., List-Detail, Supporting Pane) that scale across phones, foldables, and tablets.
+- **Kotlin Coroutines**: For handling asynchronous AI processing and background indexing tasks.
 
 ## Implementation Steps
 **Total Duration:** 3h 45m 47s
@@ -39,7 +34,7 @@ I have created a project brief for IntelliDash, focusing on a local-first MVP th
 
 ### Task_2_AICoreClient: Implement the AICore client for local Gemini Nano inference, supporting the Preview track and structured JSON output for AI code audits.
 - **Status:** COMPLETED
-- **Updates:** Fixed AICore Error 200 by: [details omitted]
+- **Updates:** Fixed AICore Error 200 by adding structured output support.
 - **Acceptance Criteria:**
   - AICore client initialized on supported device
   - JSON output schema defined and supported
@@ -77,7 +72,7 @@ I have created a project brief for IntelliDash, focusing on a local-first MVP th
 
 ### Task_6_MediaIndexerCore: Implement Media Indexer backend: Root-based file scanning for DCIM/Screenshots, Room DB with FTS5 search, and MediaPipe multimodal tagging (Gemma-3n) with WorkManager background processing.
 - **Status:** COMPLETED
-- **Updates:** Implemented Media Indexer backend:
+- **Updates:** Implemented Media Indexer backend including Room FTS5 and MediaPipe pipeline.
 - **Acceptance Criteria:**
   - Root scanning of restricted storage successful
   - Room DB with FTS5 indexing implemented
@@ -87,12 +82,7 @@ I have created a project brief for IntelliDash, focusing on a local-first MVP th
 
 ### Task_7_MediaGalleryUI: Implement the Home Hub for navigation and the Searchable Media Gallery UI. Perform final system-wide verification for stability and performance.
 - **Status:** COMPLETED
-- **Updates:** Final system-wide implementation and verification complete:
-- Home Hub: Entry point for both Context Auditor and Media Indexer.
-- Media Indexer UI: Dashboard with progress/status, FTS-based searchable gallery, and detail view with AI metadata.
-- Navigation: Jetpack Navigation 3 implementation with adaptive layout support.
-- Stability: Verified no crashes during root scanning, AI inference, or background work.
-- Design: Consistent premium Cyber theme applied app-wide.
+- **Updates:** Final system-wide implementation and verification complete for gallery.
 - **Acceptance Criteria:**
   - Home Hub allows navigation to Context Auditor and Media Indexer
   - Searchable gallery displays media with FTS-based search
@@ -100,4 +90,21 @@ I have created a project brief for IntelliDash, focusing on a local-first MVP th
   - Build pass
   - All existing tests pass
 - **Duration:** 13m 58s
+
+### Task_8_SmartCollectionsImpl: Implement Smart Collections: Update Room DB and FTS for 'collectionName', update the AI prompt to extract categorization metadata, and build the adaptive Collection Browser UI tab.
+- **Status:** IN_PROGRESS
+- **Acceptance Criteria:**
+  - Room DB schema supports collectionName
+  - AI prompt returns collectionName in JSON output
+  - Collection Browser UI allows viewing media grouped by AI categories
+  - UI is adaptive across phone and tablet form factors
+- **StartTime:** 2026-06-28 20:49:19 EDT
+
+### Task_9_RunAndVerifyCollections: Run the application and perform final verification of the Smart Collections feature. Instruct critic_agent to verify application stability (no crashes), confirm alignment with user requirements, and report critical UI issues.
+- **Status:** PENDING
+- **Acceptance Criteria:**
+  - Smart Collections correctly group media
+  - App does not crash during AI categorization or browsing
+  - Build pass
+  - All existing tests pass
 

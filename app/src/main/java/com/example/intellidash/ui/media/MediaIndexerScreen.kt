@@ -1,5 +1,7 @@
 package com.example.intellidash.ui.media
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.graphics.Bitmap
 import androidx.compose.animation.*
 import androidx.compose.foundation.Image
@@ -13,8 +15,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Collections
 import androidx.compose.material.icons.rounded.Dashboard
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
@@ -51,24 +58,53 @@ fun MediaIndexerScreen(
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val navigator = rememberListDetailPaneScaffoldNavigator<MediaItem>()
+    val workInfo by viewModel.workInfo.collectAsStateWithLifecycle()
+    val statusMessage by viewModel.statusMessage.collectAsStateWithLifecycle()
+    
+    var showCreateCollectionDialog by remember { mutableStateOf(false) }
+    var newCollectionName by remember { mutableStateOf("") }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.importMedia(it, "Uncategorized") }
+    }
 
     Scaffold(
         topBar = {
             Column(modifier = Modifier.background(CyberDark)) {
                 CenterAlignedTopAppBar(
                     title = {
-                        Text(
-                            "MEDIA INDEXER",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 2.sp,
-                                color = CyberBlue
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "MEDIA INDEXER",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 2.sp,
+                                    color = CyberBlue
+                                )
                             )
-                        )
+                            if (workInfo?.state == WorkInfo.State.RUNNING) {
+                                Text(
+                                    statusMessage ?: "Indexing...",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = CyberGreen
+                                )
+                            }
+                        }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = CyberDark
-                    )
+                    ),
+                    actions = {
+                        if (workInfo?.state == WorkInfo.State.RUNNING) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.padding(end = 16.dp).size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = CyberGreen
+                            )
+                        }
+                    }
                 )
                 TabRow(
                     selectedTabIndex = selectedTab,
@@ -90,9 +126,44 @@ fun MediaIndexerScreen(
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        text = { Text("SEARCH / GALLERY") },
+                        text = { Text("COLLECTIONS") },
+                        icon = { Icon(Icons.Rounded.Collections, null) }
+                    )
+                    Tab(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        text = { Text("GALLERY") },
                         icon = { Icon(Icons.Rounded.Search, null) }
                     )
+                }
+                if (workInfo?.state == WorkInfo.State.RUNNING) {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth().height(1.dp),
+                        color = CyberGreen,
+                        trackColor = Color.Transparent
+                    )
+                }
+            }
+        },
+        floatingActionButton = {
+            when (selectedTab) {
+                1 -> {
+                    FloatingActionButton(
+                        onClick = { showCreateCollectionDialog = true },
+                        containerColor = CyberBlue,
+                        contentColor = CyberDark
+                    ) {
+                        Icon(Icons.Rounded.Add, "Create Collection")
+                    }
+                }
+                2 -> {
+                    FloatingActionButton(
+                        onClick = { photoPickerLauncher.launch("image/*") },
+                        containerColor = CyberBlue,
+                        contentColor = CyberDark
+                    ) {
+                        Icon(Icons.Rounded.AddPhotoAlternate, "Import Image")
+                    }
                 }
             }
         },
@@ -100,18 +171,62 @@ fun MediaIndexerScreen(
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
             when (selectedTab) {
-                0 -> IndexerDashboard(viewModel)
-                1 -> GalleryContent(viewModel, navigator)
+                0 -> DashboardContent(viewModel)
+                1 -> CollectionsContent(viewModel) {
+                    selectedTab = 2
+                }
+                2 -> GalleryContent(viewModel, navigator)
             }
         }
+    }
+
+    if (showCreateCollectionDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreateCollectionDialog = false },
+            title = { Text("CREATE COLLECTION", color = CyberBlue) },
+            text = {
+                OutlinedTextField(
+                    value = newCollectionName,
+                    onValueChange = { newCollectionName = it },
+                    label = { Text("Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CyberBlue,
+                        unfocusedBorderColor = Color.DarkGray,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newCollectionName.isNotBlank()) {
+                            viewModel.createCollection(newCollectionName)
+                            newCollectionName = ""
+                            showCreateCollectionDialog = false
+                        }
+                    }
+                ) {
+                    Text("CREATE", color = CyberBlue)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateCollectionDialog = false }) {
+                    Text("CANCEL", color = Color.Gray)
+                }
+            },
+            containerColor = Color(0xFF1A1A1A)
+        )
     }
 }
 
 @Composable
-fun IndexerDashboard(viewModel: MediaIndexerViewModel) {
+fun DashboardContent(viewModel: MediaIndexerViewModel) {
     val totalCount by viewModel.totalCount.collectAsStateWithLifecycle()
     val indexedCount by viewModel.indexedCount.collectAsStateWithLifecycle()
     val workInfo by viewModel.workInfo.collectAsStateWithLifecycle()
+    val statusMessage by viewModel.statusMessage.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -119,6 +234,39 @@ fun IndexerDashboard(viewModel: MediaIndexerViewModel) {
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
+        if (statusMessage != null) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (workInfo?.state == WorkInfo.State.FAILED) 
+                        MaterialTheme.colorScheme.errorContainer 
+                    else 
+                        CyberBlue.copy(alpha = 0.1f)
+                ),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (workInfo?.state == WorkInfo.State.FAILED) {
+                        Icon(Icons.Rounded.Close, null, tint = MaterialTheme.colorScheme.error)
+                    } else if (workInfo?.state == WorkInfo.State.RUNNING) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = CyberBlue)
+                    }
+                    Text(
+                        text = statusMessage!!,
+                        color = if (workInfo?.state == WorkInfo.State.FAILED) 
+                            MaterialTheme.colorScheme.onErrorContainer 
+                        else 
+                            Color.White,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
@@ -206,24 +354,24 @@ fun IndexerDashboard(viewModel: MediaIndexerViewModel) {
             ) {
                 Column {
                     Text(
-                        "DISCOVERY",
+                        "INDEXING",
                         style = MaterialTheme.typography.labelMedium,
                         color = CyberBlue
                     )
                     Text(
-                        "Scan for new media",
+                        "Analyze images with AI",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White
                     )
                 }
                 Button(
-                    onClick = { viewModel.refreshDiscovery() },
+                    onClick = { viewModel.startIndexing() },
                     colors = ButtonDefaults.buttonColors(containerColor = CyberBlue.copy(alpha = 0.2f)),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(Icons.Rounded.Refresh, null, tint = CyberBlue)
                     Spacer(Modifier.width(8.dp))
-                    Text("SCAN NOW", color = CyberBlue)
+                    Text("INDEX NOW", color = CyberBlue)
                 }
             }
         }
@@ -262,6 +410,115 @@ fun IndexerDashboard(viewModel: MediaIndexerViewModel) {
                 )
             }
         }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "POWERED BY",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Gray
+            )
+            Text(
+                "GEMINI NANO (AICORE)",
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = CyberBlue
+            )
+        }
+    }
+}
+
+@Composable
+fun CollectionsContent(
+    viewModel: MediaIndexerViewModel,
+    onCollectionClick: () -> Unit
+) {
+    val collections by viewModel.collections.collectAsStateWithLifecycle()
+
+    if (collections.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("No collections yet. Index some images to see them here.", color = Color.Gray)
+        }
+    } else {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(160.dp),
+            contentPadding = PaddingValues(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(collections) { collection ->
+                CollectionCard(collection, viewModel) {
+                    viewModel.selectCollection(collection.name)
+                    onCollectionClick()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CollectionCard(
+    collection: com.example.intellidash.data.CollectionInfo,
+    viewModel: MediaIndexerViewModel,
+    onClick: () -> Unit
+) {
+    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    
+    LaunchedEffect(collection.coverPath) {
+        collection.coverPath?.let { path ->
+            withContext(Dispatchers.IO) {
+                bitmap = viewModel.loadBitmap(path)
+            }
+        }
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .background(Color.DarkGray)
+            ) {
+                if (bitmap != null) {
+                    Image(
+                        bitmap = bitmap!!.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        Icons.Rounded.Folder,
+                        null,
+                        modifier = Modifier.align(Alignment.Center).size(48.dp),
+                        tint = CyberBlue.copy(alpha = 0.5f)
+                    )
+                }
+            }
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = collection.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = if (collection.count == 1) "1 item" else "${collection.count} items",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = CyberBlue
+                )
+            }
+        }
     }
 }
 
@@ -272,6 +529,7 @@ fun GalleryContent(
     navigator: ThreePaneScaffoldNavigator<MediaItem>
 ) {
     val items by viewModel.mediaItems.collectAsStateWithLifecycle()
+    val selectedCollection by viewModel.selectedCollection.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
@@ -280,25 +538,53 @@ fun GalleryContent(
         listPane = {
             AnimatedPane {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = {
-                            query = it
-                            viewModel.onSearchQueryChanged(it)
-                        },
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        placeholder = { Text("Search tags, categories, summaries...") },
-                        leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CyberBlue,
-                            unfocusedBorderColor = Color.DarkGray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = query,
+                            onValueChange = {
+                                query = it
+                                viewModel.onSearchQueryChanged(it)
+                            },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("Search...") },
+                            leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = CyberBlue,
+                                unfocusedBorderColor = Color.DarkGray,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            )
                         )
-                    )
+                    }
+                    
+                    if (selectedCollection != null) {
+                        InputChip(
+                            selected = true,
+                            onClick = { viewModel.selectCollection(null) },
+                            label = { Text(selectedCollection!!) },
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Rounded.Close,
+                                    null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            colors = InputChipDefaults.inputChipColors(
+                                selectedContainerColor = CyberBlue.copy(alpha = 0.2f),
+                                selectedLabelColor = CyberBlue,
+                                selectedTrailingIconColor = CyberBlue
+                            ),
+                            border = null
+                        )
+                    }
+
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(120.dp),
                         contentPadding = PaddingValues(16.dp),
@@ -389,7 +675,9 @@ fun MediaDetailView(
     onClose: () -> Unit
 ) {
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
-    
+    val userCollections by viewModel.userCollections.collectAsStateWithLifecycle()
+    var showCollectionMenu by remember { mutableStateOf(false) }
+
     LaunchedEffect(item.path) {
         withContext(Dispatchers.IO) {
             bitmap = viewModel.loadBitmap(item.path)
@@ -454,16 +742,54 @@ fun MediaDetailView(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            "CATEGORY",
-            style = MaterialTheme.typography.labelSmall,
-            color = CyberGreen
-        )
-        Text(
-            text = item.category ?: "Unknown",
-            style = MaterialTheme.typography.titleMedium,
-            color = CyberBlue
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    "CATEGORY",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = CyberGreen
+                )
+                Text(
+                    text = item.category ?: "Unknown",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = CyberBlue
+                )
+            }
+            
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    "COLLECTION",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = CyberGreen
+                )
+                Box {
+                    TextButton(onClick = { showCollectionMenu = true }) {
+                        Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(16.dp), tint = CyberBlue)
+                        Spacer(Modifier.width(8.dp))
+                        Text(item.collectionName ?: "None", color = Color.White)
+                    }
+                    DropdownMenu(
+                        expanded = showCollectionMenu,
+                        onDismissRequest = { showCollectionMenu = false },
+                        modifier = Modifier.background(Color(0xFF2A2A2A))
+                    ) {
+                        userCollections.forEach { collection ->
+                            DropdownMenuItem(
+                                text = { Text(collection.name, color = Color.White) },
+                                onClick = {
+                                    viewModel.addMediaToCollection(item.id, collection.name)
+                                    showCollectionMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 

@@ -7,8 +7,8 @@ import androidx.appfunctions.service.AppFunction
 /**
  * Provides AppFunctions for auditing code snippets using local AI capabilities.
  */
-class AuditFunctions(private val context: android.content.Context) {
-    private val aiCoreClient = AICoreClient(context)
+class AuditFunctions {
+    private val aiCoreClient = AICoreClient()
 
     /**
      * Audits a code snippet to identify cyclomatic complexity, security vulnerabilities, and provide a refactored solution.

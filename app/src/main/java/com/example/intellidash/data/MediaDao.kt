@@ -19,12 +19,12 @@ interface MediaDao {
 
     @Query("""
         SELECT media_items.* FROM media_items 
-        JOIN media_items_fts ON media_items.id = media_items_fts.rowid 
+        JOIN media_items_fts ON media_items.rowid = media_items_fts.rowid 
         WHERE media_items_fts MATCH :query
     """)
     fun search(query: String): Flow<List<MediaItem>>
     
-    @Query("SELECT * FROM media_items ORDER BY id DESC")
+    @Query("SELECT * FROM media_items ORDER BY rowid DESC")
     fun getAll(): Flow<List<MediaItem>>
 
     @Query("SELECT COUNT(*) FROM media_items")
@@ -32,4 +32,22 @@ interface MediaDao {
 
     @Query("SELECT COUNT(*) FROM media_items WHERE summary IS NOT NULL")
     fun getIndexedCount(): Flow<Int>
+
+    @Query("""
+        SELECT uc.name as name, COUNT(mi.rowid) as count, (SELECT path FROM media_items WHERE collectionName = uc.name LIMIT 1) as coverPath 
+        FROM user_collections uc 
+        LEFT JOIN media_items mi ON uc.name = mi.collectionName 
+        GROUP BY uc.name
+        ORDER BY uc.name ASC
+    """)
+    fun getCollections(): Flow<List<CollectionInfo>>
+
+    @Query("SELECT * FROM media_items WHERE collectionName = :collectionName ORDER BY rowid DESC")
+    fun getItemsByCollection(collectionName: String): Flow<List<MediaItem>>
+
+    @Query("UPDATE media_items SET collectionName = :collectionName WHERE rowid = :id")
+    suspend fun updateCollection(id: Long, collectionName: String)
+
+    @Query("SELECT * FROM media_items WHERE rowid = :id")
+    suspend fun getById(id: Long): MediaItem?
 }

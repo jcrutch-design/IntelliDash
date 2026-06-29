@@ -18,7 +18,7 @@ import kotlinx.coroutines.withContext
  */
 class LocalContextEngineerViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val aiCoreClient = AICoreClient(application)
+    private val aiCoreClient = AICoreClient()
 
     private val _uiState = MutableStateFlow(EngineerUiState())
     val uiState: StateFlow<EngineerUiState> = _uiState.asStateFlow()

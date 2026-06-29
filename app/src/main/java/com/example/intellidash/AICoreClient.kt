@@ -1,6 +1,5 @@
 package com.example.intellidash
 
-import android.content.Context
 import android.util.Log
 import com.google.mlkit.genai.prompt.GenerativeModel
 import com.google.mlkit.genai.prompt.Generation
@@ -10,14 +9,13 @@ import com.google.mlkit.genai.prompt.ModelPreference
 import com.google.mlkit.genai.prompt.GenerationConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.flow.collect
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
  * Client for interacting with local Gemini Nano inference via AICore.
  */
-class AICoreClient(private val context: Context) {
+class AICoreClient {
 
     private val json = Json {
         isLenient = true
@@ -195,7 +193,7 @@ class AICoreClient(private val context: Context) {
      */
     private fun repairJson(input: String): String {
         return input
-            .replace(Regex("""(?<=[\}\]])\s+(?=[\{\[])"""), ", ")
+            .replace(Regex("""(?<=[}\]])\s+(?=[{\[])"""), ", ")
             .replace(Regex("""(?<=")\s+(?=")"""), ", ")
     }
 

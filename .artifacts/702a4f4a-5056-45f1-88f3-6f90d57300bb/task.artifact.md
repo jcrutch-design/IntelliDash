@@ -1,0 +1,5 @@
+- [x] Refactor `MultimodalIndexerClient.kt` to use ML Kit GenAI
+- [x] Ensure `AICoreClient.kt` is optimized for NPU
+- [x] Clean up `MediaIndexerWorker.kt`
+- [x] Update `MediaIndexerScreen.kt` UI
+- [x] Verify build and consistency

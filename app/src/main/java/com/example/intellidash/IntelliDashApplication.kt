@@ -19,7 +19,7 @@ class IntelliDashApplication : Application(), AppFunctionConfiguration.Provider 
     override fun onCreate() {
         super.onCreate()
         applicationScope.launch {
-            AICoreClient(this@IntelliDashApplication).warmup()
+            AICoreClient().warmup()
         }
         
         // Start media discovery and indexing immediately on app start
@@ -29,7 +29,7 @@ class IntelliDashApplication : Application(), AppFunctionConfiguration.Provider 
     }
 
     override val appFunctionConfiguration: AppFunctionConfiguration by lazy {
-        val factory = LocalContextAppFunctionFactory(this)
+        val factory = LocalContextAppFunctionFactory()
         AppFunctionConfiguration.Builder()
             .addEnclosingClassFactory(AuditFunctions::class.java) {
                 factory.createEnclosingClass(AuditFunctions::class.java)!!

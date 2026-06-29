@@ -48,10 +48,12 @@ class MainActivity : ComponentActivity() {
                             is IntelliDashKey.MediaIndexer -> {
                                 val context = LocalContext.current
                                 val application = context.applicationContext as android.app.Application
-                                val dao = remember { MediaDatabase.getDatabase(context).mediaDao() }
+                                val db = remember { MediaDatabase.getDatabase(context) }
+                                val dao = remember { db.mediaDao() }
+                                val ucDao = remember { db.userCollectionDao() }
                                 val wm = remember { WorkManager.getInstance(context) }
                                 val viewModel: MediaIndexerViewModel = viewModel(
-                                    factory = MediaIndexerViewModel.Factory(application, dao, wm)
+                                    factory = MediaIndexerViewModel.Factory(application, dao, ucDao, wm)
                                 )
                                 MediaIndexerScreen(viewModel = viewModel)
                             }
