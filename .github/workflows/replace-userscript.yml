@@ -1,0 +1,173 @@
+name: Replace Edge userscript
+
+on:
+  push:
+    paths:
+      - '.github/workflows/replace-userscript.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  replace-userscript:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Build fixed userscript from pinned v7.6.9 source
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from urllib.request import urlopen
+
+          SOURCE = (
+              'https://raw.githubusercontent.com/magicoflolis/Userscript-Plus/'
+              '3a9dba61bea720b9dfe15098cc726df657d2c2ff/'
+              'dist/magic-userjs.user.js'
+          )
+          TARGET = Path('magic-userscript-edge-fixed.user.js')
+
+          with urlopen(SOURCE, timeout=30) as response:
+              text = response.read().decode('utf-8')
+
+          def must_replace(old, new, count=1):
+              global text
+              found = text.count(old)
+              if found < count:
+                  raise RuntimeError(
+                      f'Expected replacement target not found enough times: {old[:100]!r}; '
+                      f'found={found}, expected>={count}'
+                  )
+              text = text.replace(old, new, count)
+
+          must_replace(
+              '// @version      7.6.9',
+              '// @version      7.6.9-edge.1'
+          )
+          must_replace(
+              '// @connect     greasyfork.org',
+              '// @connect     greasyfork.org\n// @connect     api.greasyfork.org'
+          )
+          must_replace(
+              '// @connect     sleazyfork.org',
+              '// @connect     sleazyfork.org\n// @connect     api.sleazyfork.org'
+          )
+
+          must_replace(
+              "const isGM = typeof GM !== 'undefined' || typeof GM_xmlhttpRequest !== 'undefined';",
+              "const gm = typeof GM !== 'undefined' && GM ? GM : {};\n"
+              "const isGM = Object.keys(gm).length > 0 || typeof GM_xmlhttpRequest !== 'undefined';"
+          )
+
+          must_replace(
+              "    if (isObj(GM.info)) {\n"
+              "      return GM.info;\n"
+              "    } else if (isObj(GM_info)) {",
+              "    if (isObj(gm.info)) {\n"
+              "      return gm.info;\n"
+              "    } else if (typeof GM_info !== 'undefined' && isObj(GM_info)) {"
+          )
+
+          must_replace(
+              "      if (isFN(GM.setValue)) {\n"
+              "        await GM.setValue(key, v);\n"
+              "      } else if (isFN(GM_setValue)) {",
+              "      if (isFN(gm.setValue)) {\n"
+              "        await gm.setValue(key, v);\n"
+              "      } else if (typeof GM_setValue !== 'undefined' && isFN(GM_setValue)) {"
+          )
+
+          must_replace(
+              "        if (isFN(GM.getValue)) {\n"
+              "          GMType = await GM.getValue(key, JSON.stringify(def));\n"
+              "        } else if (isFN(GM_getValue)) {",
+              "        if (isFN(gm.getValue)) {\n"
+              "          GMType = await gm.getValue(key, JSON.stringify(def));\n"
+              "        } else if (typeof GM_getValue !== 'undefined' && isFN(GM_getValue)) {"
+          )
+
+          must_replace(
+              "    if (isFN(GM.registerMenuCommand)) {\n"
+              "      GM.registerMenuCommand(text, command);\n"
+              "    } else if (isFN(GM_registerMenuCommand)) {",
+              "    if (isFN(gm.registerMenuCommand)) {\n"
+              "      gm.registerMenuCommand(text, command);\n"
+              "    } else if (typeof GM_registerMenuCommand !== 'undefined' && isFN(GM_registerMenuCommand)) {"
+          )
+
+          must_replace(
+              "      if (isFN(GM.xmlHttpRequest)) {\n"
+              "        return GM.xmlHttpRequest(details);\n"
+              "      } else if (isFN(GM_xmlhttpRequest)) {",
+              "      if (isFN(gm.xmlHttpRequest)) {\n"
+              "        return gm.xmlHttpRequest(details);\n"
+              "      } else if (typeof GM_xmlhttpRequest !== 'undefined' && isFN(GM_xmlhttpRequest)) {"
+          )
+
+          must_replace(
+              "        const fn = (isFN(GM.addElement) && GM.addElement) || "
+              "(isFN(GM_addElement) && GM_addElement);",
+              "        const fn = (isFN(gm.addElement) && gm.addElement) || "
+              "(typeof GM_addElement !== 'undefined' && isFN(GM_addElement) && GM_addElement);"
+          )
+
+          must_replace(
+              "            if (isFN(GM.openInTab)) {\n"
+              "              return GM.openInTab(dataset.webpage);\n"
+              "            } else if (isFN(GM_openInTab)) {",
+              "            if (isFN(gm.openInTab)) {\n"
+              "              return gm.openInTab(dataset.webpage);\n"
+              "            } else if (typeof GM_openInTab !== 'undefined' && isFN(GM_openInTab)) {"
+          )
+
+          must_replace(
+              "    if (isNull(window.trustedTypes.defaultPolicy)) {\n"
+              "      window.trustedTypes.createPolicy('default', {\n"
+              "        createHTML: (string) => string,\n"
+              "        createScript: (string) => string,\n"
+              "        createScriptURL: (string) => string\n"
+              "      });\n"
+              "    }",
+              "    if (isNull(window.trustedTypes.defaultPolicy)) {\n"
+              "      try {\n"
+              "        window.trustedTypes.createPolicy('default', {\n"
+              "          createHTML: (string) => string,\n"
+              "          createScript: (string) => string,\n"
+              "          createScriptURL: (string) => string\n"
+              "        });\n"
+              "      } catch (ex) {\n"
+              "        // Edge/Chromium may block Trusted Types policy creation via CSP.\n"
+              "        // Treat that as non-fatal so the userscript can still initialize.\n"
+              "        con.dbg('Trusted Types policy unavailable:', ex);\n"
+              "      }\n"
+              "    }"
+          )
+
+          if not text.startswith('// ==UserScript=='):
+              raise RuntimeError('Generated file does not start with a userscript header')
+          if '// @version      7.6.9-edge.1' not in text:
+              raise RuntimeError('Edge version metadata missing')
+
+          TARGET.write_text(text, encoding='utf-8', newline='\n')
+          print(f'Wrote {TARGET} ({TARGET.stat().st_size} bytes)')
+          PY
+
+      - name: Validate JavaScript syntax
+        run: node --check magic-userscript-edge-fixed.user.js
+
+      - name: Commit full userscript
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add magic-userscript-edge-fixed.user.js
+          if git diff --cached --quiet; then
+            echo 'No userscript changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Replace placeholder with Edge-fixed userscript'
+          git push origin HEAD:main
